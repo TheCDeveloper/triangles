@@ -28,6 +28,9 @@ int main() {
                     break;
             }
         }
+
+        renderer.clear();
+        renderer.present();
     }
 
 

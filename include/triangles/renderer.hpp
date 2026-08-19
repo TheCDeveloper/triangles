@@ -40,6 +40,26 @@ public:
     virtual void deinit() = 0;
 
 
+    /**
+     * @breif Clears the screen.
+     *
+     * Clears the screen with the specified color, opaque black by default.
+     *
+     * @param r Red channel
+     * @param g Green channel
+     * @param b Blue channel
+     * @param a Alpha channel
+     */
+    virtual void clear(u8 r=0, u8 g=0, u8 b=0, u8 a=255) = 0;
+
+    /**
+     * @breif Presents the rendering.
+     *
+     * Presents the rendering to the screen/window.
+     */
+    virtual void present() = 0;
+
+
     SDL_Window *window() noexcept { return window_; }
     const SDL_Window *window() const noexcept { return window_; }
 
