@@ -7,6 +7,10 @@ struct SDL_Window;
 
 namespace TRIANGLES_NAMESPACE {
 
+using TextureHandle = usize;
+constexpr usize NULL_HANDLE = 0;
+
+
 struct InitializationInfo final {
     i32 width = 1280, height = 720;
     const char *title = "Window";
@@ -45,6 +49,22 @@ public:
 
 
     /**
+     * @brief Creates a texture from a image file.
+     *
+     * @param path Path to texture file.
+     * @return NULL_HANDLE on failure, otherwise a valid TextureHandle.
+     */
+    virtual TextureHandle create_texture(const char *path) = 0;
+
+    /**
+     * @brief Destroys the texture from its handle.
+     *
+     * @param texture Handle of texture.
+     */
+    virtual void destroy_texture(TextureHandle texture) = 0;
+
+
+    /**
      * @brief Clears the screen.
      *
      * Clears the screen with the specified color, opaque black by default.
@@ -66,6 +86,23 @@ public:
      * @pre Renderer must be initialized.
      */
     virtual void present() = 0;
+
+
+    /**
+     * @brief Renders a texture to the screen.
+     *
+     * @param x X position to render.
+     * @param y Y position to render.
+     * @param w Width to render.
+     * @param h Height to render.
+     *
+     * @pre Renderer must be initialized.
+     */
+    virtual void render_texture(TextureHandle handle,
+                                f32 x,
+                                f32 y,
+                                f32 w,
+                                f32 h) = 0;
 
 
     /**

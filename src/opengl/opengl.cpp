@@ -1,5 +1,7 @@
 #include <triangles/opengl/opengl.hpp>
+#include <vector>
 #include <SDL3/SDL.h>
+#include <stb_image.h>
 #include <glad/gl.h>
 
 using namespace TRIANGLES_NAMESPACE;
@@ -11,23 +13,25 @@ const char *VSHADER_SOURCE = R"(
 #version 330 core
 
 layout(location = 0) in vec2 a_position;
-layout(location = 1) in vec3 a_color;
-out vec3 v_color;
+layout(location = 1) in vec2 a_uv;
+out vec2 v_uv;
 
 void main() {
     gl_Position = vec4(a_position, 0.0f, 1.0f);
-    v_color = a_color;
+    v_uv = a_uv;
 }
 )";
 
 const char *FSHADER_SOURCE = R"(
 #version 330 core
 
-in vec3 v_color;
+in vec2 v_uv;
 out vec4 frag_color;
 
+uniform sampler2D u_image;
+
 void main() {
-    frag_color = vec4(v_color, 1.0f);
+    frag_color = texture(u_image, v_uv);
 }
 )";
 
@@ -40,6 +44,12 @@ static GLuint create_shader_(GLenum type, const char *const *src) noexcept {
     return shader;
 }
 
+
+struct TextureInfo final {
+    bool allocated = false;
+    GLuint texture = 0;
+};
+
 }
 
 
@@ -48,6 +58,8 @@ struct OpenGLRenderer::Internal final {
     GLuint program = 0;
     GLuint vertex_array = 0;
     GLuint vertex_buffer = 0;
+
+    std::vector<TextureInfo> textures;
 
 
     bool init_2d() noexcept;
@@ -103,6 +115,12 @@ bool OpenGLRenderer::Internal::init_2d() noexcept {
 
 
 void OpenGLRenderer::Internal::deinit_2d() noexcept {
+    for (const auto &info : textures) {
+        glDeleteTextures(1, &info.texture);
+    }
+
+    textures.clear();
+
     glDeleteVertexArrays(1, &vertex_array);
     glDeleteBuffers(1, &vertex_buffer);
     glDeleteProgram(program);
@@ -113,7 +131,9 @@ OpenGLRenderer::OpenGLRenderer()
     : internal_(new Internal()) {}
 
 
-OpenGLRenderer::~OpenGLRenderer() {}
+OpenGLRenderer::~OpenGLRenderer() {
+    deinit();
+}
 
 
 bool OpenGLRenderer::init(const InitializationInfo &info) {
@@ -160,6 +180,55 @@ void OpenGLRenderer::deinit() {
 }
 
 
+TextureHandle OpenGLRenderer::create_texture(const char *path) {
+    stbi_set_flip_vertically_on_load(1);
+
+    int width, height, channels;
+    unsigned char *data = stbi_load(path, &width, &height, &channels, 4);
+
+    if (!data) {
+        return NULL_HANDLE;
+    }
+
+    GLenum texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexImage2D(GL_TEXTURE_2D, 1, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    stbi_image_free(data);
+
+    TextureInfo &info = internal_->textures.emplace_back();
+    info.allocated = true;
+    info.texture = texture;
+
+    return internal_->textures.size();
+}
+
+
+void OpenGLRenderer::destroy_texture(TextureHandle texture) {
+    usize index = texture - 1;
+
+    if (index >= internal_->textures.size()) {
+        return;
+    }
+
+    TextureInfo &info = internal_->textures[index];
+
+    if (!info.allocated) {
+        return;
+    }
+
+    glDeleteTextures(1, &info.texture);
+    info.allocated = false;
+
+    if (texture == internal_->textures.size()) {
+        internal_->textures.pop_back();
+    }
+}
+
+
 void OpenGLRenderer::clear(u8 r, u8 g, u8 b, u8 a) noexcept {
     glClearColor(r / 255.0f, g / 255.0f, b / 255.0f, a / 255.0f);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -168,4 +237,10 @@ void OpenGLRenderer::clear(u8 r, u8 g, u8 b, u8 a) noexcept {
 
 void OpenGLRenderer::present() noexcept {
     SDL_GL_SwapWindow(window_);
+}
+
+
+// TODO: implement
+void OpenGLRenderer::render_texture(TextureHandle handle, f32 x, f32 y, f32 w, f32 h) noexcept {
+
 }

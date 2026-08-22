@@ -14,11 +14,17 @@ add_library(glad STATIC "lib/glad/src/gl.c")
 target_include_directories(glad PUBLIC "lib/glad/include")
 target_link_libraries(glad PRIVATE OpenGL::GL)
 
+add_library(stb_image STATIC "lib/stb/src/main.c")
+target_include_directories(stb_image PUBLIC "lib/stb/include")
+
 
 file(GLOB TRIANGLES_SOURCES CONFIGURE_DEPENDS "src/opengl/*.cpp")
 add_library(triangles STATIC ${TRIANGLES_SOURCES})
 target_include_directories(triangles PUBLIC "include")
-target_link_libraries(triangles PUBLIC SDL3::SDL3 PRIVATE OpenGL::GL glad)
+target_link_libraries(triangles
+    PUBLIC SDL3::SDL3
+    PRIVATE OpenGL::GL glad stb_image
+)
 
 
 if(BUILD_TESTS)
