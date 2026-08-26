@@ -9,6 +9,7 @@ project(Triangles VERSION 0.1.0 LANGUAGES C CXX)
 
 find_package(SDL3 REQUIRED CONFIG)
 find_package(OpenGL REQUIRED)
+find_package(glm REQUIRED)
 
 add_library(glad STATIC "lib/glad/src/gl.c")
 target_include_directories(glad PUBLIC "lib/glad/include")

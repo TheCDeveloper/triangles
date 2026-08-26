@@ -15,6 +15,11 @@ int main() {
     renderer.init(init_info);
 
 
+    tri::TextureHandle texture = renderer.create_texture("tests/res/player.bmp");
+
+
+    float x = 0.0f;
+
     bool running = true;
     while (running) {
         SDL_Event event;
@@ -29,11 +34,15 @@ int main() {
             }
         }
 
+        x += 0.2f * 16.7f;
+
         renderer.clear();
+        renderer.render_texture(texture, x, x/2, 100, 100);
         renderer.present();
     }
 
 
+    renderer.destroy_texture(texture);
     renderer.deinit();
     SDL_Quit();
     return 0;

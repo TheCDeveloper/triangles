@@ -3,6 +3,8 @@
 #include <SDL3/SDL.h>
 #include <stb_image.h>
 #include <glad/gl.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 using namespace TRIANGLES_NAMESPACE;
 
@@ -16,8 +18,12 @@ layout(location = 0) in vec2 a_position;
 layout(location = 1) in vec2 a_uv;
 out vec2 v_uv;
 
+uniform mat4 u_model;
+uniform mat4 u_view;
+uniform mat4 u_proj;
+
 void main() {
-    gl_Position = vec4(a_position, 0.0f, 1.0f);
+    gl_Position = u_proj * u_view * u_model * vec4(a_position, 0.0f, 1.0f);
     v_uv = a_uv;
 }
 )";
@@ -56,8 +62,15 @@ struct TextureInfo final {
 struct OpenGLRenderer::Internal final {
     SDL_GLContext sdl_glc = nullptr;
     GLuint program = 0;
+    GLint u_image = 0;
+    GLint u_model = 0;
+    GLint u_view = 0;
+    GLint u_proj = 0;
     GLuint vertex_array = 0;
     GLuint vertex_buffer = 0;
+
+    glm::mat4 view_matrix = glm::mat4(1.0f);
+    glm::mat4 projection_matrix = glm::ortho(0.0f, 1280.0f, 720.0f, 0.0f);
 
     std::vector<TextureInfo> textures;
 
@@ -81,28 +94,37 @@ bool OpenGLRenderer::Internal::init_2d() noexcept {
     glDeleteShader(vshader);
     glDeleteShader(fshader);
 
+    u_image = glGetUniformLocation(program, "u_image");
+    u_model = glGetUniformLocation(program, "u_model");
+    u_view = glGetUniformLocation(program, "u_view");
+    u_proj = glGetUniformLocation(program, "u_proj");
+
 
     const GLfloat vertices[] = {
-        0.0, 0.5, 1, 0, 0,
-        -0.5, -0.5, 0, 1, 0,
-        0.5, -0.5, 0, 0, 1
+        0.0f, 1.0f, 0.0f, 1.0f,
+        0.0f, 0.0f, 0.0f, 0.0f,
+        1.0f, 0.0f, 1.0f, 0.0f,
+
+        1.0f, 0.0f, 1.0f, 0.0f,
+        1.0f, 1.0f, 1.0f, 1.0f,
+        0.0f, 1.0f, 0.0f, 1.0f
     };
 
     glGenBuffers(1, &vertex_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
-    glBufferData(GL_ARRAY_BUFFER, 15 * sizeof(GLfloat), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, 24 * sizeof(GLfloat), vertices, GL_STATIC_DRAW);
 
     glCreateVertexArrays(1, &vertex_array);
     glBindVertexArray(vertex_array);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
 
-    glVertexAttribPointer(0, 2, GL_FLOAT, false, 5 * sizeof(GLfloat), nullptr);
+    glVertexAttribPointer(0, 2, GL_FLOAT, false, 4 * sizeof(GLfloat), nullptr);
     glVertexAttribPointer(
         1,
-        3,
+        2,
         GL_FLOAT,
         false,
-        5 * sizeof(GLfloat),
+        4 * sizeof(GLfloat),
         reinterpret_cast<const void *>(2 * sizeof(GLfloat)));
 
     glEnableVertexAttribArray(0);
@@ -110,6 +132,9 @@ bool OpenGLRenderer::Internal::init_2d() noexcept {
 
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     return true;
 }
 
@@ -133,6 +158,7 @@ OpenGLRenderer::OpenGLRenderer()
 
 OpenGLRenderer::~OpenGLRenderer() {
     deinit();
+    delete internal_;
 }
 
 
@@ -156,6 +182,8 @@ bool OpenGLRenderer::init(const InitializationInfo &info) {
         SDL_DestroyWindow(window_);
         return false;
     }
+
+    SDL_GL_SetSwapInterval(1);
 
     if (!gladLoadGL((GLADloadfunc) SDL_GL_GetProcAddress)) {
         SDL_GL_DestroyContext(internal_->sdl_glc);
@@ -193,9 +221,12 @@ TextureHandle OpenGLRenderer::create_texture(const char *path) {
     GLenum texture;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
-    glTexImage2D(GL_TEXTURE_2D, 1, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
     glGenerateMipmap(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, 0);
+
+    glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     stbi_image_free(data);
 
@@ -240,7 +271,21 @@ void OpenGLRenderer::present() noexcept {
 }
 
 
-// TODO: implement
 void OpenGLRenderer::render_texture(TextureHandle handle, f32 x, f32 y, f32 w, f32 h) noexcept {
+    glm::mat4 model_matrix =
+        glm::translate(glm::mat4(1.0f), {x, y, 0.0f})
+        * glm::scale(glm::mat4(1.0f), {w, h, 1.0f});
 
+
+    glUseProgram(internal_->program);
+    glUniform1i(internal_->u_image, 0);
+    glUniformMatrix4fv(internal_->u_model, 1, GL_FALSE, &model_matrix[0][0]);
+    glUniformMatrix4fv(internal_->u_view, 1, GL_FALSE, &internal_->view_matrix[0][0]);
+    glUniformMatrix4fv(internal_->u_proj, 1, GL_FALSE, &internal_->projection_matrix[0][0]);
+
+    // TODO: check texture validity
+    glBindTexture(GL_TEXTURE_2D, internal_->textures[handle - 1].texture);
+    glBindVertexArray(internal_->vertex_array);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
 }
