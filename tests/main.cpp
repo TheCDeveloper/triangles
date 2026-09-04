@@ -15,6 +15,10 @@ int main() {
     tri::OpenGLRenderer renderer;
     renderer.init(init_info);
 
+    if (!renderer.initialized()) {
+        return 1;
+    }
+
 
     tri::TextureHandle texture = renderer.create_texture("tests/res/player.bmp");
 
