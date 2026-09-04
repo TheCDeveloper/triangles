@@ -2,6 +2,7 @@
 #include "common.hpp"
 #include "types.hpp"
 
+union SDL_Event;
 struct SDL_Window;
 
 
@@ -13,6 +14,7 @@ constexpr usize NULL_HANDLE = 0;
 
 struct InitializationInfo final {
     i32 width = 1280, height = 720;
+    bool resizable = false;
     const char *title = "Window";
 };
 
@@ -55,6 +57,8 @@ public:
      * @return NULL_HANDLE on failure, otherwise a valid TextureHandle.
      */
     virtual TextureHandle create_texture(const char *path) = 0;
+    // TODO: Decouple stb_image requirement; texture creation should accept a array of pixels with
+    // chosen format.
 
     /**
      * @brief Destroys the texture from its handle.
@@ -62,6 +66,16 @@ public:
      * @param texture Handle of texture.
      */
     virtual void destroy_texture(TextureHandle texture) = 0;
+
+
+    /**
+     * @brief Send SDL events for handling Window resize, ...
+     *
+     * @param event Const ref to SDL event.
+     *
+     * @pre Renderer must be initialized.
+     */
+    virtual void event(const SDL_Event &event) = 0;
 
 
     /**

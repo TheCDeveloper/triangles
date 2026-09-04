@@ -16,6 +16,8 @@ public:
     TextureHandle create_texture(const char *path) override;
     void destroy_texture(TextureHandle texture) override;
 
+    void event(const SDL_Event &event) override;
+
     void clear(u8 r = 0, u8 g = 0, u8 b = 0, u8 a = 255) noexcept override;
     void present() noexcept override;
 

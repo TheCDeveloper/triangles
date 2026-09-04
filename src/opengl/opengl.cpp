@@ -77,6 +77,8 @@ struct OpenGLRenderer::Internal final {
 
     bool init_2d() noexcept;
     void deinit_2d() noexcept;
+
+    void handle_resize(int width, int height);
 };
 
 
@@ -152,6 +154,12 @@ void OpenGLRenderer::Internal::deinit_2d() noexcept {
 }
 
 
+void OpenGLRenderer::Internal::handle_resize(int width, int height) {
+    glViewport(0, 0, width, height);
+    projection_matrix = glm::ortho<float>(0.0f, width, height, 0.0f);
+}
+
+
 OpenGLRenderer::OpenGLRenderer()
     : internal_(new Internal()) {}
 
@@ -165,16 +173,18 @@ OpenGLRenderer::~OpenGLRenderer() {
 bool OpenGLRenderer::init(const InitializationInfo &info) {
     if (initialized_) { return true; }
 
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+
     window_ = SDL_CreateWindow(info.title, info.width, info.height, SDL_WINDOW_OPENGL);
 
     if (!window_) {
         return false;
     }
 
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_SetWindowResizable(window_, info.resizable);
 
     internal_->sdl_glc = SDL_GL_CreateContext(window_);
 
@@ -191,6 +201,7 @@ bool OpenGLRenderer::init(const InitializationInfo &info) {
         return false;
     }
 
+    internal_->handle_resize(info.width, info.height);
     internal_->init_2d();
 
     initialized_ = true;
@@ -256,6 +267,18 @@ void OpenGLRenderer::destroy_texture(TextureHandle texture) {
 
     if (texture == internal_->textures.size()) {
         internal_->textures.pop_back();
+    }
+}
+
+
+void OpenGLRenderer::event(const SDL_Event &event) {
+    switch (event.type) {
+        case SDL_EVENT_WINDOW_RESIZED:
+            internal_->handle_resize(event.window.data1, event.window.data2);
+            break;
+
+        default:
+            break;
     }
 }
 

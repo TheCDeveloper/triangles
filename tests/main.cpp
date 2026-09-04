@@ -8,6 +8,7 @@ int main() {
     }
 
     tri::InitializationInfo init_info = {
+        .resizable = true,
         .title = "Test"
     };
 
@@ -24,6 +25,8 @@ int main() {
     while (running) {
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
+            renderer.event(event);
+
             switch (event.type) {
                 case SDL_EVENT_QUIT:
                     running = false;
@@ -34,7 +37,7 @@ int main() {
             }
         }
 
-        x += 0.2f * 16.7f;
+        x += 0.08f * 16.7f;
 
         renderer.clear();
         renderer.render_texture(texture, x, x/2, 100, 100);
